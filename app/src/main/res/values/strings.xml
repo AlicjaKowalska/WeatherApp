@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">WeatherApp</string>
+    <string name="get_weather_button">Get weather</string>
+    <string name="weather">Weather:</string>
+    <string name="weather_desc">Weather description:</string>
+    <string name="temp">Temperature:</string>
+    <string name="feels_like">Feels like:</string>
+    <string name="temp_min">Minimum temperature:</string>
+    <string name="temp_max">Maximum temperature:</string>
+    <string name="last_update">Last update:</string>
+    <string name="unknown">Unknown</string>
 </resources>
