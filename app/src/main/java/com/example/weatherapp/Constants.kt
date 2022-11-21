@@ -9,4 +9,6 @@ object Constants {
     const val FEELS_LIKE_KEY = "feelsLike"
     const val TEMP_MIN_KEY = "tempMin"
     const val TEMP_MAX_KEY = "tempMax"
+
+    const val API_URL = "https://api.openweathermap.org/data/2.5/weather"
 }

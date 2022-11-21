@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.Data
 import androidx.work.Worker
 import androidx.work.WorkerParameters
+import com.example.weatherapp.Constants
 import org.json.JSONException
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -16,7 +17,7 @@ class RequestWeatherWorker(context: Context, workerParams: WorkerParameters) :
     override fun doWork(): Result {
         val key: String = inputData.getString("API_KEY")!!
         val city = inputData.getString("city")
-        val url = URL("https://api.openweathermap.org/data/2.5/weather?q=$city&appid=$key")
+        val url = URL(Constants.API_URL + "?q=$city&appid=$key")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "GET"
         if (connection.responseCode == HttpURLConnection.HTTP_OK) {
@@ -56,12 +57,12 @@ class RequestWeatherWorker(context: Context, workerParams: WorkerParameters) :
         val mainObject = jsonObject.getJSONObject("main")
         val windObject = jsonObject.getJSONObject("wind")
         return Data.Builder()
-            .putString("weatherMain", weatherObject.getString("main"))
-            .putString("weatherDescription", weatherObject.getString("description"))
-            .putDouble("temp", kelvinToCelsius(mainObject.getDouble("temp")))
-            .putDouble("feelsLike", kelvinToCelsius(mainObject.getDouble("feels_like")))
-            .putDouble("tempMin", kelvinToCelsius(mainObject.getDouble("temp_min")))
-            .putDouble("tempMax", kelvinToCelsius(mainObject.getDouble("temp_max")))
+            .putString(Constants.WEATHER_MAIN_KEY, weatherObject.getString("main"))
+            .putString(Constants.WEATHER_DESC_KEY, weatherObject.getString("description"))
+            .putDouble(Constants.TEMP_KEY, kelvinToCelsius(mainObject.getDouble("temp")))
+            .putDouble(Constants.FEELS_LIKE_KEY, kelvinToCelsius(mainObject.getDouble("feels_like")))
+            .putDouble(Constants.TEMP_MIN_KEY, kelvinToCelsius(mainObject.getDouble("temp_min")))
+            .putDouble(Constants.TEMP_MAX_KEY, kelvinToCelsius(mainObject.getDouble("temp_max")))
             .putInt("pressure", mainObject.getInt("pressure"))
             .putDouble("windSpeed", windObject.getDouble("speed"))
             .build()
