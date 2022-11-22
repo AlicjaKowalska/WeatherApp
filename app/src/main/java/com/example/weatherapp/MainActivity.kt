@@ -1,26 +1,26 @@
 package com.example.weatherapp
 
-import android.content.Context
-import android.content.SharedPreferences
 import android.Manifest
 import android.content.*
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.IBinder
+import android.provider.Settings
+import android.view.View
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.example.weatherapp.databinding.ActivityMainBinding
+import com.example.weatherapp.services.LocalizationService
 import com.example.weatherapp.workers.RequestWeatherWorker
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import android.os.IBinder
-import android.view.View
-import androidx.core.content.ContextCompat
-import com.example.weatherapp.services.LocalizationService
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var airplaneModeReceiver: BroadcastReceiver
     private lateinit var mSharedPreferences: SharedPreferences
     private lateinit var broadcastReceiver: BroadcastReceiver
     private lateinit var mService: LocalizationService
@@ -46,7 +46,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         if(!checkPermissions())
-            enableButton()
+            enableGetWeatherButton()
+
+        val isAirplaneModeEnabled: Boolean = Settings.Global.getInt(baseContext.contentResolver,
+        Settings.Global.AIRPLANE_MODE_ON, 0) != 0
+        if (isAirplaneModeEnabled) {
+            disableGetWeatherButton(R.string.airplane_on)
+        }
 
         mSharedPreferences = getSharedPreferences(Constants.PREFERENCE_NAME, Context.MODE_PRIVATE)
         loadSavedPreferences()
@@ -62,7 +68,23 @@ class MainActivity : AppCompatActivity() {
                 requestWeather(intent.getStringExtra("cityName").toString())
             }
         }
+        airplaneModeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val isAirplaneModeEnabled = intent.getBooleanExtra("state", false)
+                if (isAirplaneModeEnabled) {
+                    disableGetWeatherButton(R.string.airplane_on)
+                } else {
+                    enableGetWeatherButton()
+                }
+            }
+        }
+        registerReceiver(airplaneModeReceiver, IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED))
         registerReceiver(broadcastReceiver, IntentFilter("locationUpdate"))
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(airplaneModeReceiver)
     }
 
     override fun onStop() {
@@ -76,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(broadcastReceiver)
     }
 
-    fun enableButton() {
+    private fun enableGetWeatherButton() {
         binding.buttonGetWeather.setOnClickListener {
             if(binding.textViewLocalization.text.isEmpty())
                 binding.progressBar.visibility = View.VISIBLE
@@ -84,6 +106,13 @@ class MainActivity : AppCompatActivity() {
                 bindService(intent, connection, Context.BIND_AUTO_CREATE)
             }
         }
+        binding.buttonGetWeather.setText(R.string.get_weather_button)
+        binding.buttonGetWeather.isEnabled = true
+    }
+
+    private fun disableGetWeatherButton(stringId: Int) {
+        binding.buttonGetWeather.setText(stringId)
+        binding.buttonGetWeather.isEnabled = false
     }
 
     private fun checkPermissions() : Boolean {
@@ -100,7 +129,7 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if(requestCode == 100){ //result requestCode to match with a requestCode given in requestPermissions(), this can be any >0 value
             if( grantResults.size == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED){
-                enableButton()
+                enableGetWeatherButton()
             } else {
                 Toast.makeText(this@MainActivity, "App requires location permission to work properly!",Toast.LENGTH_LONG).show()
                 checkPermissions()
