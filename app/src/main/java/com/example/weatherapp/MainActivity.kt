@@ -5,20 +5,24 @@ import android.app.job.JobInfo
 import android.app.job.JobScheduler
 import android.content.*
 import android.content.pm.PackageManager
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.os.IBinder
-import android.provider.Settings
-import android.view.View
 import android.os.PersistableBundle
+import android.provider.Settings
+import android.util.Base64
+import android.util.Log
+import android.view.View
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.example.weatherapp.databinding.ActivityMainBinding
-import com.example.weatherapp.services.LocalizationService
 import com.example.weatherapp.services.HourlyWeatherService
+import com.example.weatherapp.services.LocalizationService
+import com.example.weatherapp.services.RequestMapService
 import com.example.weatherapp.workers.RequestWeatherWorker
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -27,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var airplaneModeReceiver: BroadcastReceiver
+    private lateinit var broadcastMapReceiver: BroadcastReceiver
     private lateinit var mSharedPreferences: SharedPreferences
     private lateinit var broadcastReceiver: BroadcastReceiver
     private lateinit var mService: LocalizationService
@@ -69,6 +74,20 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        broadcastMapReceiver = object: BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent) {
+                val imageByteArray = intent.getByteArrayExtra(Constants.MAP_IMAGE_KEY)
+                if (imageByteArray == null) {
+                    Log.e("com.example.weatherapp.MainActivity", "imageByteArray of weather map is null")
+                    return
+                }
+                val imageBitmap = BitmapFactory.decodeByteArray(imageByteArray, 0, imageByteArray.size)
+                binding.imageViewMap.setImageBitmap(imageBitmap)
+                val editor = mSharedPreferences.edit()
+                editor.putString(Constants.MAP_IMAGE_KEY, Base64.encodeToString(imageByteArray, Base64.DEFAULT))
+                editor.apply()
+            }
+        }
 
         if (!isLocationPermissionGranted || !isNotificationPermissionGranted)
             requestPermissions()
@@ -81,7 +100,7 @@ class MainActivity : AppCompatActivity() {
             override fun onReceive(context: Context?, intent: Intent) {
                 binding.progressBar.visibility = View.INVISIBLE
                 binding.textViewLocalization.text = intent.getStringExtra("cityName")
-                var city = intent.getStringExtra("cityName").toString()
+                val city = intent.getStringExtra("cityName").toString()
                 requestWeather(city)
                 getHourlyWeather(city)
             }
@@ -97,12 +116,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
         registerReceiver(airplaneModeReceiver, IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED))
+        registerReceiver(broadcastMapReceiver, IntentFilter("mapImage"))
         registerReceiver(broadcastReceiver, IntentFilter("locationUpdate"))
     }
 
     override fun onPause() {
         super.onPause()
         unregisterReceiver(airplaneModeReceiver)
+        unregisterReceiver(broadcastMapReceiver)
     }
 
     override fun onStop() {
@@ -119,6 +140,7 @@ class MainActivity : AppCompatActivity() {
     private fun enableGetWeatherButton() {
         binding.buttonGetWeather.setOnClickListener {
             getLocalization()
+            getWeatherMap()
         }
     }
 
@@ -130,6 +152,12 @@ class MainActivity : AppCompatActivity() {
         }
         binding.buttonGetWeather.setText(R.string.get_weather_button)
         binding.buttonGetWeather.isEnabled = true
+    }
+
+    private fun getWeatherMap() {
+        val intent = Intent(this, RequestMapService("RequestMapIntentService")::class.java)
+        intent.putExtra("API_KEY", Constants.API_KEY)
+        startService(intent)
     }
 
     private fun disableGetWeatherButton(stringId: Int) {
@@ -192,6 +220,10 @@ class MainActivity : AppCompatActivity() {
             val minTemp = mSharedPreferences.getString(Constants.TEMP_MIN_KEY, "")
             val maxTemp = mSharedPreferences.getString(Constants.TEMP_MAX_KEY, "")
             val localization = mSharedPreferences.getString(Constants.LOCALIZATION_KEY, "")
+            val imageString = mSharedPreferences.getString(Constants.MAP_IMAGE_KEY, "")
+            val imageByteArray = Base64.decode(imageString, Base64.DEFAULT)
+            val imageBitmap = BitmapFactory.decodeByteArray(imageByteArray, 0, imageByteArray.size)
+
             binding.textWeatherVal.text = weather
             binding.textWeatherDescVal.text = weatherDesc
             binding.textWeatherTempVal.text = temperature
@@ -199,6 +231,7 @@ class MainActivity : AppCompatActivity() {
             binding.textWeatherMinTempVal.text = minTemp
             binding.textWeatherMaxTempVal.text = maxTemp
             binding.textViewLocalization.text = localization
+            binding.imageViewMap.setImageBitmap(imageBitmap)
         }
     }
 

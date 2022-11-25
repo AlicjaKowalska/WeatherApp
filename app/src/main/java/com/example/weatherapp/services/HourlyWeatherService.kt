@@ -6,10 +6,10 @@ import android.app.job.JobParameters
 import android.app.job.JobService
 import android.content.Context
 import android.os.Build
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
-import androidx.work.*
+import androidx.work.Configuration
+import androidx.work.Data
 import com.example.weatherapp.Constants
 import com.example.weatherapp.R
 import com.example.weatherapp.Weather
