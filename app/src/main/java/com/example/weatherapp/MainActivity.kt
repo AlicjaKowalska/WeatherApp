@@ -5,30 +5,28 @@ import android.app.job.JobInfo
 import android.app.job.JobScheduler
 import android.content.*
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
-import android.os.PersistableBundle
-import android.util.Log
+import android.provider.Settings
 import android.view.View
+import android.os.PersistableBundle
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.NotificationManagerCompat
-import androidx.core.content.ContextCompat
 import androidx.work.*
 import com.example.weatherapp.databinding.ActivityMainBinding
-import com.example.weatherapp.services.HourlyWeatherService
 import com.example.weatherapp.services.LocalizationService
+import com.example.weatherapp.services.HourlyWeatherService
 import com.example.weatherapp.workers.RequestWeatherWorker
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-
 class MainActivity : AppCompatActivity() {
 
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
+    private lateinit var airplaneModeReceiver: BroadcastReceiver
     private lateinit var mSharedPreferences: SharedPreferences
     private lateinit var broadcastReceiver: BroadcastReceiver
     private lateinit var mService: LocalizationService
@@ -59,6 +57,12 @@ class MainActivity : AppCompatActivity() {
             isNotificationPermissionGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: isNotificationPermissionGranted
         }
 
+        val isAirplaneModeEnabled: Boolean = Settings.Global.getInt(baseContext.contentResolver,
+        Settings.Global.AIRPLANE_MODE_ON, 0) != 0
+        if (isAirplaneModeEnabled) {
+            disableGetWeatherButton(R.string.airplane_on)
+        }
+
         mSharedPreferences = getSharedPreferences(Constants.PREFERENCE_NAME, Context.MODE_PRIVATE)
         loadSavedPreferences()
     }
@@ -70,7 +74,7 @@ class MainActivity : AppCompatActivity() {
             requestPermissions()
 
         if (isLocationPermissionGranted) {
-            enableButton()
+            enableGetWeatherButton()
         }
 
         broadcastReceiver = object : BroadcastReceiver() {
@@ -82,7 +86,23 @@ class MainActivity : AppCompatActivity() {
                 getHourlyWeather(city)
             }
         }
+        airplaneModeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                val isAirplaneModeEnabled = intent.getBooleanExtra("state", false)
+                if (isAirplaneModeEnabled) {
+                    disableGetWeatherButton(R.string.airplane_on)
+                } else {
+                    enableGetWeatherButton()
+                }
+            }
+        }
+        registerReceiver(airplaneModeReceiver, IntentFilter(Intent.ACTION_AIRPLANE_MODE_CHANGED))
         registerReceiver(broadcastReceiver, IntentFilter("locationUpdate"))
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(airplaneModeReceiver)
     }
 
     override fun onStop() {
@@ -96,7 +116,7 @@ class MainActivity : AppCompatActivity() {
         unregisterReceiver(broadcastReceiver)
     }
 
-    private fun enableButton() {
+    private fun enableGetWeatherButton() {
         binding.buttonGetWeather.setOnClickListener {
             getLocalization()
         }
@@ -108,6 +128,13 @@ class MainActivity : AppCompatActivity() {
         Intent(this, LocalizationService::class.java).also { intent ->
             bindService(intent, connection, Context.BIND_AUTO_CREATE)
         }
+        binding.buttonGetWeather.setText(R.string.get_weather_button)
+        binding.buttonGetWeather.isEnabled = true
+    }
+
+    private fun disableGetWeatherButton(stringId: Int) {
+        binding.buttonGetWeather.setText(stringId)
+        binding.buttonGetWeather.isEnabled = false
     }
 
     private fun getHourlyWeather(city: String) {

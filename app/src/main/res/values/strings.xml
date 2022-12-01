@@ -9,4 +9,6 @@
     <string name="temp_max">Maximum temperature:</string>
     <string name="last_update">Last update:</string>
     <string name="unknown">Unknown</string>
+    <string name="airplane_on">Airplane mode on</string>
+    <string name="airplane_toast">This function needs airplane mode disabled to work</string>
 </resources>
