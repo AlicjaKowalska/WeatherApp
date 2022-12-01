@@ -1,32 +1,39 @@
 package com.example.weatherapp
 
 import android.Manifest
+import android.app.job.JobInfo
+import android.app.job.JobScheduler
 import android.content.*
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import android.view.View
+import android.os.PersistableBundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.work.*
 import com.example.weatherapp.databinding.ActivityMainBinding
 import com.example.weatherapp.services.LocalizationService
+import com.example.weatherapp.services.HourlyWeatherService
 import com.example.weatherapp.workers.RequestWeatherWorker
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var airplaneModeReceiver: BroadcastReceiver
     private lateinit var mSharedPreferences: SharedPreferences
     private lateinit var broadcastReceiver: BroadcastReceiver
     private lateinit var mService: LocalizationService
     private lateinit var binding: ActivityMainBinding
+    private var isNotificationPermissionGranted = false
+    private var isLocationPermissionGranted = false
     private var mBound: Boolean = false
-    private val MIN_SDK_VERSION = 23
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
@@ -45,8 +52,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        if(!checkPermissions())
-            enableGetWeatherButton()
+        permissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()){ permissions ->
+            isLocationPermissionGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: isLocationPermissionGranted
+            isNotificationPermissionGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: isNotificationPermissionGranted
+        }
 
         val isAirplaneModeEnabled: Boolean = Settings.Global.getInt(baseContext.contentResolver,
         Settings.Global.AIRPLANE_MODE_ON, 0) != 0
@@ -61,11 +70,20 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
 
+        if (!isLocationPermissionGranted || !isNotificationPermissionGranted)
+            requestPermissions()
+
+        if (isLocationPermissionGranted) {
+            enableGetWeatherButton()
+        }
+
         broadcastReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent) {
                 binding.progressBar.visibility = View.INVISIBLE
                 binding.textViewLocalization.text = intent.getStringExtra("cityName")
-                requestWeather(intent.getStringExtra("cityName").toString())
+                var city = intent.getStringExtra("cityName").toString()
+                requestWeather(city)
+                getHourlyWeather(city)
             }
         }
         airplaneModeReceiver = object : BroadcastReceiver() {
@@ -100,11 +118,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun enableGetWeatherButton() {
         binding.buttonGetWeather.setOnClickListener {
-            if(binding.textViewLocalization.text.isEmpty())
-                binding.progressBar.visibility = View.VISIBLE
-            Intent(this, LocalizationService::class.java).also { intent ->
-                bindService(intent, connection, Context.BIND_AUTO_CREATE)
-            }
+            getLocalization()
+        }
+    }
+
+    private fun getLocalization(){
+        if(binding.textViewLocalization.text.isEmpty())
+            binding.progressBar.visibility = View.VISIBLE
+        Intent(this, LocalizationService::class.java).also { intent ->
+            bindService(intent, connection, Context.BIND_AUTO_CREATE)
         }
         binding.buttonGetWeather.setText(R.string.get_weather_button)
         binding.buttonGetWeather.isEnabled = true
@@ -115,25 +137,46 @@ class MainActivity : AppCompatActivity() {
         binding.buttonGetWeather.isEnabled = false
     }
 
-    private fun checkPermissions() : Boolean {
-        if (Build.VERSION.SDK_INT >= MIN_SDK_VERSION && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 100)
-            return true
-        }
-        return false
+    private fun getHourlyWeather(city: String) {
+        val locationBundle = PersistableBundle()
+        locationBundle.putString("API_KEY", Constants.API_KEY)
+        locationBundle.putString("city", city)
+
+        val jobScheduler = getSystemService(JOB_SCHEDULER_SERVICE) as JobScheduler
+        val jobInfo = JobInfo.Builder( 101,
+            ComponentName(applicationContext, HourlyWeatherService::class.java))
+            .setMinimumLatency(0)
+            .setPersisted(true)
+            .setPeriodic(60 * 60 * 1000)
+            .setExtras(locationBundle)
+            .build()
+        jobScheduler.schedule(jobInfo)
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if(requestCode == 100){ //result requestCode to match with a requestCode given in requestPermissions(), this can be any >0 value
-            if( grantResults.size == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED){
-                enableGetWeatherButton()
-            } else {
-                Toast.makeText(this@MainActivity, "App requires location permission to work properly!",Toast.LENGTH_LONG).show()
-                checkPermissions()
-            }
+    private fun requestPermissions() {
+
+        isLocationPermissionGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        isNotificationPermissionGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) == PackageManager.PERMISSION_GRANTED
+
+        val permissionRequest : MutableList<String> = ArrayList()
+
+        if(!isLocationPermissionGranted) {
+            permissionRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        if(!isNotificationPermissionGranted) {
+            permissionRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        if(permissionRequest.isNotEmpty()) {
+            permissionLauncher.launch(permissionRequest.toTypedArray())
         }
     }
 
