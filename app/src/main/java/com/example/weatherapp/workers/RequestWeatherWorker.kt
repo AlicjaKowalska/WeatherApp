@@ -1,14 +1,10 @@
 package com.example.weatherapp.workers
 
 import android.content.Context
-import android.util.Log
 import androidx.work.Data
 import androidx.work.Worker
 import androidx.work.WorkerParameters
-import com.example.weatherapp.Constants
 import com.example.weatherapp.Weather
-import org.json.JSONException
-import org.json.JSONObject
 import java.net.HttpURLConnection
 
 class RequestWeatherWorker(context: Context, workerParams: WorkerParameters) :

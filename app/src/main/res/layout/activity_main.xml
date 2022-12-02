@@ -6,6 +6,18 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <ImageView
+        android:id="@+id/imageViewMap"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        android:scaleType="centerCrop"
+        app:layout_constraintBottom_toTopOf="@+id/buttonGetWeather"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.50"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textLastUpdateVal"
+        tools:srcCompat="@tools:sample/avatars" />
+
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyle"
@@ -28,16 +40,6 @@
         app:layout_constraintTop_toTopOf="parent"
         android:textColor="@color/black"
         android:textSize="24sp"/>
-
-    <Button
-        android:id="@+id/buttonGetWeather"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="24dp"
-        android:text="@string/get_weather_button"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
 
     <TextView
         android:id="@+id/textWeather"
@@ -93,13 +95,6 @@
         android:text="@string/temp_max"
         app:layout_constraintStart_toStartOf="@+id/textWeatherMinTemp"
         app:layout_constraintTop_toBottomOf="@+id/textWeatherMinTemp" />
-
-    <androidx.constraintlayout.widget.Guideline
-        android:id="@+id/guideline2"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintGuide_begin="16dp" />
 
     <TextView
         android:id="@+id/textWeatherVal"
@@ -166,5 +161,15 @@
         android:text="@string/unknown"
         app:layout_constraintStart_toStartOf="@+id/textWeatherMaxTempVal"
         app:layout_constraintTop_toTopOf="@+id/textLastUpdate" />
+
+    <Button
+        android:id="@+id/buttonGetWeather"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="24dp"
+        android:text="@string/get_weather_button"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

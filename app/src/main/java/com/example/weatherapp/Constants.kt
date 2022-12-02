@@ -10,6 +10,8 @@ object Constants {
     const val TEMP_MIN_KEY = "tempMin"
     const val TEMP_MAX_KEY = "tempMax"
     const val LOCALIZATION_KEY = "localization"
+    const val MAP_IMAGE_KEY = "mapImage"
+    const val RESULT_KEY = "result"
     const val CHANNEL_ID = "1"
 
     const val API_URL = "https://api.openweathermap.org/data/2.5/weather"
